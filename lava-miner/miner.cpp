@@ -856,7 +856,7 @@ void send_i(void)
 
 				if (iResult == SOCKET_ERROR)
 				{
-					if (WSAGetLastError() != WSAEWOULDBLOCK) //разрыв соединения, молча переотправляем дедлайн
+					if (WSAGetLastError() != WSAEWOULDBLOCK) 
 					{
 						if (network_quality > 0) network_quality--;
 						Log("\nSender: ! Error getting confirmation for DL: "); Log_llu(iter->deadline);  Log("  code: "); Log_u(WSAGetLastError());
@@ -891,8 +891,7 @@ void send_i(void)
 						if (!answ.Parse<0>(find).HasParseError())
 						{
 							if (answ.IsObject()) {
-
-								if (answ.HasMember("result"))
+								if (answ.HasMember("result") && answ["error"].IsNull())
 								{
 									rapidjson::Value &anObj = answ["result"];
 
@@ -954,7 +953,6 @@ void send_i(void)
 										}
 									}
 								}
-
 							}		
 	                    }
 						else
@@ -1227,7 +1225,8 @@ void procscoop_sph(const unsigned long long nonce, const unsigned long long n, c
 
 		//the base deadline everyone should go beyond
 		unsigned long long *wertung = (unsigned long long*)res;
-
+		unsigned long long wetmp = *wertung;
+		unsigned long long coefi = *wertung / baseTarget;
 		if ((*wertung / baseTarget) <= bests[acc].targetDeadline)
 		{
 				if (bests[acc].nonce == 0 || *wertung < bests[acc].best)
@@ -1922,7 +1921,7 @@ void pollLocal(void) {
 							if (gmi.Parse<0>(find).HasParseError()) Log("\n*! GMI: error parsing JSON message from pool");
 							else {
 								if (gmi.IsObject()) {
-									if (gmi.HasMember("result")) {
+									if (gmi.HasMember("result")&& gmi["error"].IsNull()) {
 										const rapidjson::Value &jsObj = gmi["result"];
 
 										if (jsObj.IsObject())
