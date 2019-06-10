@@ -933,28 +933,31 @@ void send_i(void)
 										if (ndeadline != iter->deadline)
 										{
 											wattron(win_main, COLOR_PAIR(6));
-											wprintw(win_main, "----Fast block or corrupted file?----\nSent deadline:\t%llu\nServer's deadline:\t%llu \n----\n", iter->deadline, ndeadline, 0); 
+											wprintw(win_main, "----Fast block or corrupted file?----\nSent deadline:\t%llu\nServer's deadline:\t%llu \n----\n", iter->deadline, ndeadline, 0);
 											wattroff(win_main, COLOR_PAIR(6));
 										}
 									}
+
+								}
+								else {
+									rapidjson::Value &errObj = answ["error"];
+									if (errObj.HasMember("code")) {
+										wattron(win_main, COLOR_PAIR(12));
+										if (errObj["code"].GetInt() == -3) {
+											wprintw(win_main, "please import your privkey in Lava core and Restart the miner! \n");
+										} else { 
+											wprintw(win_main, "[ERROR %u] %s\n", errObj["code"].GetInt(), errObj["message"].GetString(), 0); 
+										}
+										wattroff(win_main, COLOR_PAIR(12));
+									}
 									else {
-										if (anObj.HasMember("errorDescription")) {
-											wattron(win_main, COLOR_PAIR(15));
-											wprintw(win_main, "[ERROR %u] %s\n", anObj["errorCode"].GetInt(), anObj["errorDescription"].GetString(), 0);
-											wattroff(win_main, COLOR_PAIR(15));
-											wattron(win_main, COLOR_PAIR(12));
-											if (anObj["errorCode"].GetInt() == 1004) wprintw(win_main, "You need change reward assignment and wait 4 blocks (~16 minutes)\n"); //error 1004
-											wattroff(win_main, COLOR_PAIR(12));
-										}
-										else {
-											wattron(win_main, COLOR_PAIR(15));
-											wprintw(win_main, "%s\n", find);
-											wattroff(win_main, COLOR_PAIR(15));
-										}
+										wattron(win_main, COLOR_PAIR(15));
+										wprintw(win_main, "%s\n", find);
+										wattroff(win_main, COLOR_PAIR(15));
 									}
 								}
-							}		
-	                    }
+							}
+						}
 						else
 						{
 							if (strstr(find, "Received share") != nullptr)
@@ -1006,6 +1009,115 @@ void send_i(void)
 	}
 	HeapFree(hHeap, 0, buffer);
 	return;
+}
+
+bool check_privkey() {
+	Log("\nSender: check the privkey wether importing");
+	SOCKET ConnectSocket;
+	int iResult;
+	struct addrinfo *result = nullptr;
+	struct addrinfo hints;
+	RtlSecureZeroMemory(&hints, sizeof(hints));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+	iResult = getaddrinfo(nodeaddr.c_str(), nodeport.c_str(), &hints, &result);
+
+	ConnectSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+	if (ConnectSocket == INVALID_SOCKET) {
+		if (network_quality > 0) network_quality--;
+		wattron(win_main, COLOR_PAIR(12));
+		wprintw(win_main, "SENDER: socket failed with error: %ld\n", WSAGetLastError(), 0);
+		wattroff(win_main, COLOR_PAIR(12));
+		freeaddrinfo(result);
+		return false;
+	}
+	const unsigned t = 1000;
+	setsockopt(ConnectSocket, SOL_SOCKET, SO_RCVTIMEO, (char *)&t, sizeof(unsigned));
+	iResult = connect(ConnectSocket, result->ai_addr, (int)result->ai_addrlen);
+	if (iResult == SOCKET_ERROR)
+	{
+		if (network_quality > 0) network_quality--;
+		Log("\nSender:! Error Sender's connect: "); Log_u(WSAGetLastError());
+		wattron(win_main, COLOR_PAIR(12));
+		wprintw(win_main, "SENDER: can't connect. Error: %ld\n", WSAGetLastError(), 0);
+		wattroff(win_main, COLOR_PAIR(12));
+		freeaddrinfo(result);
+		return false;
+	}
+	iResult = 0;
+	size_t const buffer_size = 1000;
+	char* buffer = (char*)HeapAlloc(hHeap, HEAP_ZERO_MEMORY, buffer_size);
+	char* bodybuffer = (char*)HeapAlloc(hHeap, HEAP_ZERO_MEMORY, buffer_size);
+	if (buffer == nullptr) ShowMemErrorExit();
+	if (bodybuffer == nullptr) ShowMemErrorExit();
+
+	int bytes = 0;
+	int bytestmp = 0;
+	std::string noncestr = std::to_string(0);
+	std::string beststr = std::to_string(0);
+	unsigned long long total = total_size / 1024 / 1024 / 1024;
+	for (auto It = satellite_size.begin(); It != satellite_size.end(); ++It) total = total + It->second;
+	bytestmp = sprintf_s(bodybuffer, buffer_size, "{\r\n\"jsonrpc\": \"1.0\",\r\n\"id\":\"curltest\",\r\n\"method\": \"submitnonce\",\r\n\"params\": [\"%s\", \"%s\", %llu]\r\n}", ownerId.c_str(), noncestr.c_str(), 0);
+	bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nContent-Type: application/json\r\nHost: %s:%s@%s:%s\r\nauthorization: Basic dGVzdDp0ZXN0\r\nX-Miner: Blago %s\r\nX-Capacity: %llu\r\nContent-Length: %d\r\ncache-control: no-cache\r\nConnection: close\r\n\r\n%s\r\n\r\n", http_account.c_str(), http_password.c_str(), nodeaddr.c_str(), nodeport.c_str(), version, total, bytestmp, bodybuffer);
+	iResult = send(ConnectSocket, buffer, bytes, 0);
+	if (iResult == SOCKET_ERROR)
+	{
+		if (network_quality > 0) network_quality--;
+		Log("\nSender: ! Error deadline's sending: "); Log_u(WSAGetLastError());
+		wattron(win_main, COLOR_PAIR(12));
+		wprintw(win_main, "SENDER: send failed: %ld\n", WSAGetLastError(), 0);
+		wattroff(win_main, COLOR_PAIR(12));
+		return false;
+	}
+	RtlSecureZeroMemory(buffer, buffer_size);
+	size_t  pos = 0;
+	iResult = 0;
+	do {
+		iResult = recv(ConnectSocket, &buffer[pos], (int)(buffer_size - pos - 1), 0);
+		if (iResult > 0) pos += (size_t)iResult;
+	} while (iResult > 0);
+	if (iResult == SOCKET_ERROR)
+	{
+		wattron(win_main, COLOR_PAIR(12));
+		wprintw(win_main, "SENDER: send failed: %ld\n", WSAGetLastError(), 0);
+		wattroff(win_main, COLOR_PAIR(12));
+		return false;
+	}
+	
+	char *find = strstr(buffer, "{");
+	if (find == nullptr)
+	{
+		find = strstr(buffer, "\r\n\r\n");
+		if (find != nullptr) find = find + 4;
+		else find = buffer;
+	}
+	rapidjson::Document answ;
+	if (!answ.Parse<0>(find).HasParseError())
+	{
+		if (answ.IsObject()) {
+			if (answ.HasMember("result") && answ["error"].IsNull())
+			{
+				return true;
+			}
+			else {
+				rapidjson::Value &errObj = answ["error"];
+				if (errObj.HasMember("code")) {
+					wattron(win_main, COLOR_PAIR(12));
+					if (errObj["code"].GetInt() == -3) {
+						wprintw(win_main, "please import your privkey in Lava core and Restart the miner! \n");
+					}
+					else {
+						wprintw(win_main, "[ERROR %u] %s\n", errObj["code"].GetInt(), errObj["message"].GetString(), 0);
+					}
+					wattroff(win_main, COLOR_PAIR(12));
+					wrefresh(win_main);
+					return false;
+				}
+			}
+		}
+	}
+	return true;
 }
 
 void procscoop_m_4(unsigned long long const nonce, unsigned long long const n, char const *const data, size_t const acc, const std::string &file_name) {
@@ -2265,7 +2377,6 @@ int main(int argc, char **argv) {
 	wattroff(win_main, COLOR_PAIR(4));
 
 	GetCPUInfo();
-
 	wrefresh(win_main);
 	wrefresh(win_progress);
 
@@ -2300,6 +2411,12 @@ int main(int argc, char **argv) {
 	// reset the signature
 	RtlSecureZeroMemory(oldSignature, 33);
 	RtlSecureZeroMemory(signature, 33);
+
+	//check wether the private key is imported
+	bool imp = check_privkey();
+	if (imp == false) {
+		while (true) {}
+	}
 
 	// INFA
 	wattron(win_main, COLOR_PAIR(15));
@@ -2352,7 +2469,6 @@ int main(int argc, char **argv) {
 					}
 		}
 	}
-
 	// Run Proxy
 	if (enable_proxy)
 	{
@@ -2373,7 +2489,6 @@ int main(int argc, char **argv) {
 		std::this_thread::sleep_for(std::chrono::milliseconds(2));
 	};
 
-	
 	// Main loop
 	for (; !exit_flag;)
 	{
