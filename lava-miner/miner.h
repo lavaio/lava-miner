@@ -33,12 +33,12 @@ HANDLE hHeap;
 
 bool exit_flag = false;
 #ifdef __AVX2__
-	char const *const version = "v1.170900_AVX2_POC2";
+	char const *const version = "v0.1.2";
 #else
 	#ifdef __AVX__
-		char const *const version = "v1.170900_AVX_POC2";
+		char const *const version = "v0.1.2";
 	#else
-		char const *const version = "v1.170900_POC2";
+		char const *const version = "v0.1.2";
 	#endif
 #endif 
 
