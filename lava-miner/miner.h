@@ -33,12 +33,12 @@ HANDLE hHeap;
 
 bool exit_flag = false;
 #ifdef __AVX2__
-	char const *const version = "v0.1.2";
+	char const *const version = "v0.1.3";
 #else
 	#ifdef __AVX__
-		char const *const version = "v0.1.2";
+		char const *const version = "v0.1.3";
 	#else
-		char const *const version = "v0.1.2";
+		char const *const version = "v0.1.3";
 	#endif
 #endif 
 
@@ -51,6 +51,7 @@ char signature[33];
 char str_signature[65];
 char oldSignature[33];
 unsigned long long height = 0;
+int st_height = 0; //here has one problem, when block is out of range.
 unsigned long long baseTarget = 0;
 unsigned long long targetDeadlineInfo = 0;			
 unsigned long long my_target_deadline = MAXDWORD;	

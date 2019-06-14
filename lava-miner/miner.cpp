@@ -792,8 +792,10 @@ void send_i(void)
 					for (auto It = satellite_size.begin(); It != satellite_size.end(); ++It) total = total + It->second;
 					std::string noncestr = std::to_string(iter->nonce);
 					std::string beststr = std::to_string(iter->best);
-					bytestmp = sprintf_s(bodybuffer, buffer_size, "{\r\n\"jsonrpc\": \"1.0\",\r\n\"id\":\"curltest\",\r\n\"method\": \"submitnonce\",\r\n\"params\": [\"%s\", \"%s\", %llu]\r\n}", ownerId.c_str(), noncestr.c_str(), iter->best);
+					bytestmp = sprintf_s(bodybuffer, buffer_size, "{\r\n\"jsonrpc\": \"1.0\",\r\n\"id\":\"curltest\",\r\n\"method\": \"submitnonce\",\r\n\"params\": [\"%s\", \"%s\", %llu, %u]\r\n}", ownerId.c_str(), noncestr.c_str(), iter->best, st_height);
 					bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nContent-Type: application/json\r\nHost: %s:%s@%s:%s\r\nauthorization: Basic dGVzdDp0ZXN0\r\nX-Miner: Blago %s\r\nX-Capacity: %llu\r\nContent-Length: %d\r\ncache-control: no-cache\r\nConnection: close\r\n\r\n%s\r\n\r\n",http_account.c_str(),http_password.c_str(), nodeaddr.c_str(), nodeport.c_str(), version, total, bytestmp, bodybuffer);
+					Log("\n* GMI: SendtoSubmit: ");
+					Log_server(buffer);
 				}
 
 				// Sending to server
@@ -1058,7 +1060,7 @@ bool check_privkey() {
 	std::string beststr = std::to_string(0);
 	unsigned long long total = total_size / 1024 / 1024 / 1024;
 	for (auto It = satellite_size.begin(); It != satellite_size.end(); ++It) total = total + It->second;
-	bytestmp = sprintf_s(bodybuffer, buffer_size, "{\r\n\"jsonrpc\": \"1.0\",\r\n\"id\":\"curltest\",\r\n\"method\": \"submitnonce\",\r\n\"params\": [\"%s\", \"%s\", %llu]\r\n}", ownerId.c_str(), noncestr.c_str(), 0);
+	bytestmp = sprintf_s(bodybuffer, buffer_size, "{\r\n\"jsonrpc\": \"1.0\",\r\n\"id\":\"curltest\",\r\n\"method\": \"submitnonce\",\r\n\"params\": [\"%s\", \"%s\", %llu, %llu]\r\n}", ownerId.c_str(), noncestr.c_str(), 0, 0);
 	bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nContent-Type: application/json\r\nHost: %s:%s@%s:%s\r\nauthorization: Basic dGVzdDp0ZXN0\r\nX-Miner: Blago %s\r\nX-Capacity: %llu\r\nContent-Length: %d\r\ncache-control: no-cache\r\nConnection: close\r\n\r\n%s\r\n\r\n", http_account.c_str(), http_password.c_str(), nodeaddr.c_str(), nodeport.c_str(), version, total, bytestmp, bodybuffer);
 	iResult = send(ConnectSocket, buffer, bytes, 0);
 	if (iResult == SOCKET_ERROR)
@@ -2508,7 +2510,8 @@ int main(int argc, char **argv) {
 		sph_shabal256_close(&x, xcache);
 
 		scoop = (((unsigned char)xcache[31]) + 256 * (unsigned char)xcache[30]) % 4096;
-
+		
+		st_height = int(height);
 		deadline = 0;
 
 
