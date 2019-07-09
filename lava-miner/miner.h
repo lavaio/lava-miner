@@ -33,12 +33,12 @@ HANDLE hHeap;
 
 bool exit_flag = false;
 #ifdef __AVX2__
-	char const *const version = "v0.1.3";
+	char const *const version = "v0.1.4";
 #else
 	#ifdef __AVX__
-		char const *const version = "v0.1.3";
+		char const *const version = "v0.1.4";
 	#else
-		char const *const version = "v0.1.3";
+		char const *const version = "v0.1.4";
 	#endif
 #endif 
 
@@ -62,8 +62,8 @@ std::string nodeaddr = "localhost";
 std::string nodeport = "8125";	
 
 std::string ownerId = "3MhzFQAXQMsmtTmdkciLE3EJsgAQkzR4Sg";
-std::string http_account = "test";
-std::string http_password = "test";
+std::string http_account = "";
+std::string http_password = "";
 
 std::string updateraddr = "localhost";
 std::string updaterport = "8125";		
@@ -72,6 +72,8 @@ std::string infoaddr = "localhost";
 std::string infoport = "8125";		
 
 std::string proxyport = "8125";		
+std::string minername = "MinerName";
+std::string accountkey = "Ackey";
 
 char *p_minerPath = nullptr;		
 size_t miner_mode = 0;				
