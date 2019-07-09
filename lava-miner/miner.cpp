@@ -210,6 +210,22 @@ int load_config(char const *const filename)
 				Log((char*)paths_dir[i].c_str()); 
 			}
 		}
+
+		Log("\nAccountKey: ");
+		if (document.HasMember("AccountKey"))
+		{
+			if (document["AccountKey"].IsString()) accountkey = document["AccountKey"].GetString();
+			else if (document["AccountKey"].IsUint())	accountkey = std::to_string(document["AccountKey"].GetUint());
+			Log(accountkey.c_str());
+		}
+
+		Log("\nMinerName: ");
+		if (document.HasMember("MinerName"))
+		{
+			if (document["MinerName"].IsString()) minername = document["MinerName"].GetString();
+			else if (document["MinerName"].IsUint())	minername = std::to_string(document["MinerName"].GetUint());
+			Log(minername.c_str());
+		}
 		
 		Log("\nCacheSize: ");
 		if(document.HasMember("CacheSize") && (document["CacheSize"].IsUint64())) cache_size = document["CacheSize"].GetUint64();
@@ -793,7 +809,11 @@ void send_i(void)
 					std::string noncestr = std::to_string(iter->nonce);
 					std::string beststr = std::to_string(iter->best);
 					bytestmp = sprintf_s(bodybuffer, buffer_size, "{\r\n\"jsonrpc\": \"1.0\",\r\n\"id\":\"curltest\",\r\n\"method\": \"submitnonce\",\r\n\"params\": [\"%s\", \"%s\", %llu, %u]\r\n}", ownerId.c_str(), noncestr.c_str(), iter->best, st_height);
-					bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nContent-Type: application/json\r\nHost: %s:%s@%s:%s\r\nauthorization: Basic dGVzdDp0ZXN0\r\nX-Miner: Blago %s\r\nX-Capacity: %llu\r\nContent-Length: %d\r\ncache-control: no-cache\r\nConnection: close\r\n\r\n%s\r\n\r\n",http_account.c_str(),http_password.c_str(), nodeaddr.c_str(), nodeport.c_str(), version, total, bytestmp, bodybuffer);
+					if (http_account == ""){
+						bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nContent-Type: application/json\r\nHost: %s:%s\r\nAccount-Key: %s\r\nMinerName: %s\r\nauthorization: Basic dGVzdDp0ZXN0\r\nX-Miner: Blago %s\r\nX-Capacity: %llu\r\nContent-Length: %d\r\ncache-control: no-cache\r\nConnection: close\r\n\r\n%s\r\n\r\n", nodeaddr.c_str(), nodeport.c_str(), accountkey.c_str(), minername.c_str(), version, total, bytestmp, bodybuffer);
+					}else{
+						bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nContent-Type: application/json\r\nHost: %s:%s@%s:%s\r\nAccount-Key: %s\r\nMinerName: %s\r\nauthorization: Basic dGVzdDp0ZXN0\r\nX-Miner: Blago %s\r\nX-Capacity: %llu\r\nContent-Length: %d\r\ncache-control: no-cache\r\nConnection: close\r\n\r\n%s\r\n\r\n",http_account.c_str(), http_password.c_str(), nodeaddr.c_str(), nodeport.c_str(), accountkey.c_str(), minername.c_str(), version, total, bytestmp, bodybuffer);
+					}
 					Log("\n* GMI: SendtoSubmit: ");
 					Log_server(buffer);
 				}
@@ -855,6 +875,8 @@ void send_i(void)
 					iResult = recv(ConnectSocket, &buffer[pos], (int)(buffer_size - pos - 1), 0);
 					if (iResult > 0) pos += (size_t)iResult;
 				} while (iResult > 0);
+				Log("\n* GMI: ReceiveFromSubmit: ");
+				Log_server(buffer);
 
 				if (iResult == SOCKET_ERROR)
 				{
@@ -1056,13 +1078,17 @@ bool check_privkey() {
 
 	int bytes = 0;
 	int bytestmp = 0;
-	std::string noncestr = std::to_string(0);
-	std::string beststr = std::to_string(0);
 	unsigned long long total = total_size / 1024 / 1024 / 1024;
 	for (auto It = satellite_size.begin(); It != satellite_size.end(); ++It) total = total + It->second;
-	bytestmp = sprintf_s(bodybuffer, buffer_size, "{\r\n\"jsonrpc\": \"1.0\",\r\n\"id\":\"curltest\",\r\n\"method\": \"submitnonce\",\r\n\"params\": [\"%s\", \"%s\", %llu, %llu]\r\n}", ownerId.c_str(), noncestr.c_str(), 0, 0);
-	bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nContent-Type: application/json\r\nHost: %s:%s@%s:%s\r\nauthorization: Basic dGVzdDp0ZXN0\r\nX-Miner: Blago %s\r\nX-Capacity: %llu\r\nContent-Length: %d\r\ncache-control: no-cache\r\nConnection: close\r\n\r\n%s\r\n\r\n", http_account.c_str(), http_password.c_str(), nodeaddr.c_str(), nodeport.c_str(), version, total, bytestmp, bodybuffer);
+	bytestmp = sprintf_s(bodybuffer, buffer_size, "{\r\n\"jsonrpc\": \"1.0\",\r\n\"id\":\"curltest\",\r\n\"method\": \"wallethaskey\",\r\n\"params\": [\"%s\"]\r\n}", ownerId.c_str());
+	if (http_account == ""){
+		bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nContent-Type: application/json\r\nHost: %s:%s\r\nAccount-Key: %s\r\nMinerName: %s\r\nauthorization: Basic dGVzdDp0ZXN0\r\nX-Miner: Blago %s\r\nX-Capacity: %llu\r\nContent-Length: %d\r\ncache-control: no-cache\r\nConnection: close\r\n\r\n%s\r\n\r\n", nodeaddr.c_str(), nodeport.c_str(), accountkey.c_str(), minername.c_str(), version, total, bytestmp, bodybuffer);
+	}else{
+		bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nContent-Type: application/json\r\nHost: %s:%s@%s:%s\r\nAccount-Key: %s\r\nMinerName: %s\r\nauthorization: Basic dGVzdDp0ZXN0\r\nX-Miner: Blago %s\r\nX-Capacity: %llu\r\nContent-Length: %d\r\ncache-control: no-cache\r\nConnection: close\r\n\r\n%s\r\n\r\n", http_account.c_str(), http_password.c_str(), nodeaddr.c_str(), nodeport.c_str(), accountkey.c_str(), minername.c_str(), version, total, bytestmp, bodybuffer);
+	}
 	iResult = send(ConnectSocket, buffer, bytes, 0);
+	Log("\nSend to CheckPrivateKey : "); Log(buffer);
+
 	if (iResult == SOCKET_ERROR)
 	{
 		if (network_quality > 0) network_quality--;
@@ -1079,6 +1105,8 @@ bool check_privkey() {
 		iResult = recv(ConnectSocket, &buffer[pos], (int)(buffer_size - pos - 1), 0);
 		if (iResult > 0) pos += (size_t)iResult;
 	} while (iResult > 0);
+	Log("\nReceived CheckPrivateKey Ret: "); Log(buffer);
+	 
 	if (iResult == SOCKET_ERROR)
 	{
 		wattron(win_main, COLOR_PAIR(12));
@@ -1095,10 +1123,9 @@ bool check_privkey() {
 		else find = buffer;
 	}
 	rapidjson::Document answ;
-	if (!answ.Parse<0>(find).HasParseError())
-	{
-		if (answ.IsObject()) {
-			if (answ.HasMember("result") && answ["error"].IsNull())
+	if (!answ.Parse<0>(find).HasParseError()){	
+		if (answ.IsBool()) {
+			if (answ.HasMember("result") && answ["result"]["isin"]==1) 
 			{
 				return true;
 			}
@@ -1119,6 +1146,7 @@ bool check_privkey() {
 			}
 		}
 	}
+
 	return true;
 }
 
@@ -2003,8 +2031,15 @@ void pollLocal(void) {
 			else {
 				char body[] = "{\r\n\"jsonrpc\": \"1.0\",\r\n\"id\":\"curltest\",\r\n\"method\": \"getmininginfo\",\r\n\"params\": []\r\n}";
 				int len = sizeof(body);
-				int bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nHost: %s:%s@%s:%s\r\nauthorization: Basic dGVzdDp0ZXN0\r\nContent-Type: application/json\r\ncontent-length: %d\r\ncache-control: no-cache\r\n\r\n%s\r\n\r\n",http_account.c_str(), http_password.c_str(), nodeaddr.c_str(), nodeport.c_str(), len, body);
+				int bytes;
+				if (http_account == ""){
+					bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nHost: %s:%s\r\nAccount-Key: %s\r\nMinerName: %s\r\nauthorization: Basic dGVzdDp0ZXN0\r\nContent-Type: application/json\r\ncontent-length: %d\r\ncache-control: no-cache\r\n\r\n%s\r\n\r\n", nodeaddr.c_str(), nodeport.c_str(), accountkey.c_str(), minername.c_str(), len, body);
+				}else{
+					bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nHost: %s:%s@%s:%s\r\nAccount-Key: %s\r\nMinerName: %s\r\nauthorization: Basic dGVzdDp0ZXN0\r\nContent-Type: application/json\r\ncontent-length: %d\r\ncache-control: no-cache\r\n\r\n%s\r\n\r\n", http_account.c_str(), http_password.c_str(), nodeaddr.c_str(), nodeport.c_str(), accountkey.c_str(), minername.c_str(), len, body);
+				}
 				iResult = send(UpdaterSocket, buffer, bytes, 0);
+				Log("\n*! GMI: send getmininginfo");
+
 				if (iResult == SOCKET_ERROR)
 				{
 					if (network_quality > 0) network_quality--;
