@@ -111,6 +111,7 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -127,7 +128,6 @@
     <ClCompile Include="sph_shabal.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="curses.h" />
     <ClInclude Include="InstructionSet.h" />
     <ClInclude Include="miner.h" />
     <ClInclude Include="mshabal.h" />
