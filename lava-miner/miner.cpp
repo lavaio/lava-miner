@@ -7,6 +7,57 @@
 // Initialize static member data
 const InstructionSet::InstructionSet_Internal InstructionSet::CPU_Rep;
 
+static const std::string base64_chars = 
+"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+"abcdefghijklmnopqrstuvwxyz"
+"0123456789+/";
+
+
+static inline bool is_base64(unsigned char c) {
+    return (isalnum(c) || (c == '+') || (c == '/'));
+}
+
+std::string base64_encode(unsigned char const* bytes_to_encode, unsigned int in_len) {
+    std::string ret;
+    int i = 0;
+    int j = 0;
+    unsigned char char_array_3[3];
+    unsigned char char_array_4[4];
+
+    while (in_len--) {
+        char_array_3[i++] = *(bytes_to_encode++);
+        if (i == 3) {
+            char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
+            char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
+            char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
+            char_array_4[3] = char_array_3[2] & 0x3f;
+
+            for(i = 0; (i <4) ; i++)
+                ret += base64_chars[char_array_4[i]];
+            i = 0;
+        }
+    }
+
+    if (i)
+    {
+        for(j = i; j < 3; j++)
+            char_array_3[j] = '\0';
+
+        char_array_4[0] = ( char_array_3[0] & 0xfc) >> 2;
+        char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
+        char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
+
+        for (j = 0; (j < i + 1); j++)
+            ret += base64_chars[char_array_4[j]];
+
+        while((i++ < 3))
+            ret += '=';
+
+    }
+
+    return ret;
+
+}
 
 void Log_init(void)
 {
@@ -715,8 +766,10 @@ void send_i(void)
 	size_t const buffer_size = 1000;
 	char* buffer = (char*)HeapAlloc(hHeap, HEAP_ZERO_MEMORY, buffer_size);
 	char* bodybuffer = (char*)HeapAlloc(hHeap, HEAP_ZERO_MEMORY, buffer_size);
+    char* userbuffer = (char*)HeapAlloc(hHeap, HEAP_ZERO_MEMORY, buffer_size);
 	if (buffer == nullptr) ShowMemErrorExit();
 	if (bodybuffer == nullptr) ShowMemErrorExit();
+    if (userbuffer == nullptr) ShowMemErrorExit();
 
 	char tbuffer[9];
 
@@ -729,6 +782,7 @@ void send_i(void)
 		{
 			HeapFree(hHeap, 0, buffer);
 			HeapFree(hHeap, 0, bodybuffer);
+            HeapFree(hHeap, 0, userbuffer);
 			return;
 		}
 
@@ -795,8 +849,10 @@ void send_i(void)
 
 				int bytes = 0;
 				int bytestmp = 0;
-				RtlSecureZeroMemory(buffer, buffer_size);
-				RtlSecureZeroMemory(bodybuffer, buffer_size);
+                int byteUser = 0;
+
+                byteUser = sprintf_s(userbuffer, buffer_size, "%s:%s", http_account.c_str(), http_password.c_str());
+                std::string encoded = base64_encode(reinterpret_cast<const unsigned char*>(userbuffer), byteUser);
 				if (miner_mode == 0)
 				{
 					bytestmp = sprintf_s(bodybuffer, buffer_size, "{\r\n\"jsonrpc\": \"1.0\",\r\n\"id\":\"curltest\",\r\n\"method\": \"submitNonce\",\r\n\"params\": [],\r\n\"secretPhrase\":%s,\r\n\"nonce\":%llu}", pass, iter->nonce);
@@ -812,7 +868,7 @@ void send_i(void)
 					if (http_account == ""){
 						bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nContent-Type: application/json\r\nHost: %s:%s\r\nAccount-Key: %s\r\nMinerName: %s\r\nauthorization: Basic dGVzdDp0ZXN0\r\nX-Miner: Blago %s\r\nX-Capacity: %llu\r\nContent-Length: %d\r\ncache-control: no-cache\r\nConnection: close\r\n\r\n%s\r\n\r\n", nodeaddr.c_str(), nodeport.c_str(), accountkey.c_str(), minername.c_str(), version, total, bytestmp, bodybuffer);
 					}else{
-						bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nContent-Type: application/json\r\nHost: %s:%s@%s:%s\r\nAccount-Key: %s\r\nMinerName: %s\r\nauthorization: Basic dGVzdDp0ZXN0\r\nX-Miner: Blago %s\r\nX-Capacity: %llu\r\nContent-Length: %d\r\ncache-control: no-cache\r\nConnection: close\r\n\r\n%s\r\n\r\n",http_account.c_str(), http_password.c_str(), nodeaddr.c_str(), nodeport.c_str(), accountkey.c_str(), minername.c_str(), version, total, bytestmp, bodybuffer);
+						bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nContent-Type: application/json\r\nHost: %s:%s@%s:%s\r\nAccount-Key: %s\r\nMinerName: %s\r\nauthorization: Basic %s\r\nX-Miner: Blago %s\r\nX-Capacity: %llu\r\nContent-Length: %d\r\ncache-control: no-cache\r\nConnection: close\r\n\r\n%s\r\n\r\n",http_account.c_str(), http_password.c_str(), nodeaddr.c_str(), nodeport.c_str(), accountkey.c_str(), minername.c_str(), encoded.c_str(), version, total, bytestmp, bodybuffer);
 					}
 					Log("\n* GMI: SendtoSubmit: ");
 					Log_server(buffer);
@@ -1032,6 +1088,8 @@ void send_i(void)
 		std::this_thread::sleep_for(std::chrono::milliseconds(send_interval));
 	}
 	HeapFree(hHeap, 0, buffer);
+    HeapFree(hHeap, 0, bodybuffer);
+    HeapFree(hHeap, 0, userbuffer);
 	return;
 }
 
@@ -1073,18 +1131,24 @@ bool check_privkey() {
 	size_t const buffer_size = 1000;
 	char* buffer = (char*)HeapAlloc(hHeap, HEAP_ZERO_MEMORY, buffer_size);
 	char* bodybuffer = (char*)HeapAlloc(hHeap, HEAP_ZERO_MEMORY, buffer_size);
+    char* userbuffer = (char*)HeapAlloc(hHeap, HEAP_ZERO_MEMORY, buffer_size);
 	if (buffer == nullptr) ShowMemErrorExit();
 	if (bodybuffer == nullptr) ShowMemErrorExit();
+    if (userbuffer == nullptr) ShowMemErrorExit();
 
 	int bytes = 0;
 	int bytestmp = 0;
+    int byteUser = 0;
+
+    byteUser = sprintf_s(userbuffer, buffer_size, "%s:%s", http_account.c_str(), http_password.c_str());
+    std::string encoded = base64_encode(reinterpret_cast<const unsigned char*>(userbuffer), byteUser);
 	unsigned long long total = total_size / 1024 / 1024 / 1024;
 	for (auto It = satellite_size.begin(); It != satellite_size.end(); ++It) total = total + It->second;
 	bytestmp = sprintf_s(bodybuffer, buffer_size, "{\r\n\"jsonrpc\": \"1.0\",\r\n\"id\":\"curltest\",\r\n\"method\": \"wallethaskey\",\r\n\"params\": [\"%s\"]\r\n}", ownerId.c_str());
 	if (http_account == ""){
 		bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nContent-Type: application/json\r\nHost: %s:%s\r\nAccount-Key: %s\r\nMinerName: %s\r\nauthorization: Basic dGVzdDp0ZXN0\r\nX-Miner: Blago %s\r\nX-Capacity: %llu\r\nContent-Length: %d\r\ncache-control: no-cache\r\nConnection: close\r\n\r\n%s\r\n\r\n", nodeaddr.c_str(), nodeport.c_str(), accountkey.c_str(), minername.c_str(), version, total, bytestmp, bodybuffer);
 	}else{
-		bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nContent-Type: application/json\r\nHost: %s:%s@%s:%s\r\nAccount-Key: %s\r\nMinerName: %s\r\nauthorization: Basic dGVzdDp0ZXN0\r\nX-Miner: Blago %s\r\nX-Capacity: %llu\r\nContent-Length: %d\r\ncache-control: no-cache\r\nConnection: close\r\n\r\n%s\r\n\r\n", http_account.c_str(), http_password.c_str(), nodeaddr.c_str(), nodeport.c_str(), accountkey.c_str(), minername.c_str(), version, total, bytestmp, bodybuffer);
+		bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nContent-Type: application/json\r\nHost: %s:%s@%s:%s\r\nAccount-Key: %s\r\nMinerName: %s\r\nauthorization: Basic %s\r\nX-Miner: Blago %s\r\nX-Capacity: %llu\r\nContent-Length: %d\r\ncache-control: no-cache\r\nConnection: close\r\n\r\n%s\r\n\r\n", http_account.c_str(), http_password.c_str(), nodeaddr.c_str(), nodeport.c_str(), accountkey.c_str(), minername.c_str(), encoded.c_str(), version, total, bytestmp, bodybuffer);
 	}
 	iResult = send(ConnectSocket, buffer, bytes, 0);
 	Log("\nSend to CheckPrivateKey : "); Log(buffer);
@@ -1147,6 +1211,9 @@ bool check_privkey() {
 		}
 	}
 
+    HeapFree(hHeap, 0, buffer);
+    HeapFree(hHeap, 0, bodybuffer);
+    HeapFree(hHeap, 0, userbuffer);
 	return true;
 }
 
@@ -1996,7 +2063,9 @@ void GetBlockInfo(unsigned const num_block)
 void pollLocal(void) {
 	size_t const buffer_size = 1000;
 	char *buffer = (char*)HeapAlloc(hHeap, HEAP_ZERO_MEMORY, buffer_size);
+    char* userbuffer = (char*)HeapAlloc(hHeap, HEAP_ZERO_MEMORY, buffer_size);
 	if (buffer == nullptr) ShowMemErrorExit();
+    if (userbuffer == nullptr) ShowMemErrorExit();
 
 	int iResult;
 	struct addrinfo *result = nullptr;
@@ -2029,13 +2098,16 @@ void pollLocal(void) {
 				Log("\n*! GMI: connect function failed with error: "); Log_u(WSAGetLastError());
 			}
 			else {
+                int byteUser;
+                byteUser = sprintf_s(userbuffer, buffer_size, "%s:%s", http_account.c_str(), http_password.c_str());
+                std::string encoded = base64_encode(reinterpret_cast<const unsigned char*>(userbuffer), byteUser);
 				char body[] = "{\r\n\"jsonrpc\": \"1.0\",\r\n\"id\":\"curltest\",\r\n\"method\": \"getmininginfo\",\r\n\"params\": []\r\n}";
 				int len = sizeof(body);
 				int bytes;
 				if (http_account == ""){
 					bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nHost: %s:%s\r\nAccount-Key: %s\r\nMinerName: %s\r\nauthorization: Basic dGVzdDp0ZXN0\r\nContent-Type: application/json\r\ncontent-length: %d\r\ncache-control: no-cache\r\n\r\n%s\r\n\r\n", nodeaddr.c_str(), nodeport.c_str(), accountkey.c_str(), minername.c_str(), len, body);
 				}else{
-					bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nHost: %s:%s@%s:%s\r\nAccount-Key: %s\r\nMinerName: %s\r\nauthorization: Basic dGVzdDp0ZXN0\r\nContent-Type: application/json\r\ncontent-length: %d\r\ncache-control: no-cache\r\n\r\n%s\r\n\r\n", http_account.c_str(), http_password.c_str(), nodeaddr.c_str(), nodeport.c_str(), accountkey.c_str(), minername.c_str(), len, body);
+					bytes = sprintf_s(buffer, buffer_size, "POST / HTTP/1.0\r\nHost: %s:%s@%s:%s\r\nAccount-Key: %s\r\nMinerName: %s\r\nauthorization: Basic %s\r\nContent-Type: application/json\r\ncontent-length: %d\r\ncache-control: no-cache\r\n\r\n%s\r\n\r\n", http_account.c_str(), http_password.c_str(), nodeaddr.c_str(), nodeport.c_str(), accountkey.c_str(), minername.c_str(), encoded.c_str(), len, body);
 				}
 				iResult = send(UpdaterSocket, buffer, bytes, 0);
 				Log("\n*! GMI: send getmininginfo");
@@ -2114,6 +2186,7 @@ void pollLocal(void) {
 		freeaddrinfo(result);
 	}
 	HeapFree(hHeap, 0, buffer);
+    HeapFree(hHeap, 0, userbuffer);
 }
 
 
