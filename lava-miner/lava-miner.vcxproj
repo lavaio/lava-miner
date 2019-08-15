@@ -86,7 +86,12 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Program Files %28x86%29\IntelSWTools\OpenCL\sdk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>C:\Program Files (x86)\IntelSWTools\OpenCL\sdk\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>OpenCL.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -112,10 +117,13 @@
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <AdditionalIncludeDirectories>C:\Program Files %28x86%29\IntelSWTools\OpenCL\sdk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>C:\Program Files %28x86%29\IntelSWTools\OpenCL\sdk\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>OpenCL.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -124,6 +132,9 @@
     <ClCompile Include="mshabal_avx1.c" />
     <ClCompile Include="mshabal_avx2.c" />
     <ClCompile Include="mshabal_sse4.c" />
+    <ClCompile Include="OpenCL_Device.cpp" />
+    <ClCompile Include="OpenCL_Error.cpp" />
+    <ClCompile Include="OpenCL_Platform.cpp" />
     <ClCompile Include="picohttpparser.c" />
     <ClCompile Include="sph_shabal.c" />
   </ItemGroup>
@@ -132,6 +143,9 @@
     <ClInclude Include="miner.h" />
     <ClInclude Include="mshabal.h" />
     <ClInclude Include="mshabal256.h" />
+    <ClInclude Include="OpenCL_Device.h" />
+    <ClInclude Include="OpenCL_Error.h" />
+    <ClInclude Include="OpenCL_Platform.h" />
     <ClInclude Include="panel.h" />
     <ClInclude Include="picohttpparser.h" />
     <ClInclude Include="resource.h" />

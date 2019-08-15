@@ -3,6 +3,8 @@
 #include <iostream>
 #include <string>
 
+#define __AVX2__
+#define __AVX__
 
 // Initialize static member data
 const InstructionSet::InstructionSet_Internal InstructionSet::CPU_Rep;
@@ -2331,16 +2333,24 @@ void hostname_to_ip(char const *const  in_addr, char* out_addr)
 void GetCPUInfo(void)
 {
 		ULONGLONG  TotalMemoryInKilobytes = 0;
-		
+
 		wprintw(win_main, "CPU support: ");
 		if (InstructionSet::AES())    wprintw(win_main, " AES ", 0);
 		if (InstructionSet::SSE())   wprintw(win_main, " SSE ", 0);
 		if (InstructionSet::SSE2())   wprintw(win_main, " SSE2 ", 0);
 		if (InstructionSet::SSE3())   wprintw(win_main, " SSE3 ", 0);
 		if (InstructionSet::SSE42())   wprintw(win_main, " SSE4.2 ", 0);
-		if (InstructionSet::AVX())   wprintw(win_main, " AVX ", 0);
-		if (InstructionSet::AVX2())  	wprintw(win_main, " AVX2 ", 0);
-		
+        if (InstructionSet::AVX()){
+            wprintw(win_main, " AVX ", 0);
+        }else{
+            #undef __AVX__
+        }
+		if (InstructionSet::AVX2()){
+            wprintw(win_main, " AVX2 ", 0);
+        }else{
+            #undef __AVX2__
+        }
+
 #ifndef __AVX__
 		// Checking for AVX requires 3 things:
 		// 1) CPUID indicates that the OS uses XSAVE and XRSTORE instructions (allowing saving YMM registers on context switch)
@@ -2359,7 +2369,7 @@ void GetCPUInfo(void)
 			unsigned long long xcrFeatureMask = _xgetbv(_XCR_XFEATURE_ENABLED_MASK);
 			avxSupported = (xcrFeatureMask & 0x6) == 0x6;
 		}
-		if (avxSupported)	wprintw(win_main, "     [recomend use AVX]", 0);
+            if (avxSupported)	wprintw(win_main, "     [recomend use AVX]", 0);	
 #endif
 		if (InstructionSet::AVX2()) wprintw(win_main, "     [recomend use AVX2]", 0);
 		SYSTEM_INFO sysinfo;
