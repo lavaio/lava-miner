@@ -2340,16 +2340,8 @@ void GetCPUInfo(void)
 		if (InstructionSet::SSE2())   wprintw(win_main, " SSE2 ", 0);
 		if (InstructionSet::SSE3())   wprintw(win_main, " SSE3 ", 0);
 		if (InstructionSet::SSE42())   wprintw(win_main, " SSE4.2 ", 0);
-        if (InstructionSet::AVX()){
-            wprintw(win_main, " AVX ", 0);
-        }else{
-            #undef __AVX__
-        }
-		if (InstructionSet::AVX2()){
-            wprintw(win_main, " AVX2 ", 0);
-        }else{
-            #undef __AVX2__
-        }
+        if (InstructionSet::AVX())     wprintw(win_main, " AVX ", 0);
+		if (InstructionSet::AVX2())    wprintw(win_main, " AVX2 ", 0);
 
 #ifndef __AVX__
 		// Checking for AVX requires 3 things:
@@ -2371,7 +2363,7 @@ void GetCPUInfo(void)
 		}
             if (avxSupported)	wprintw(win_main, "     [recomend use AVX]", 0);	
 #endif
-		if (InstructionSet::AVX2()) wprintw(win_main, "     [recomend use AVX2]", 0);
+		if (InstructionSet::AVX2()) wprintw(win_main, "     [ use AVX2]", 0);
 		SYSTEM_INFO sysinfo;
 		GetSystemInfo(&sysinfo);
 		wprintw(win_main, "\n%s", InstructionSet::Vendor().c_str(), 0);
