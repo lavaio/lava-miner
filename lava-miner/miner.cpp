@@ -1012,12 +1012,12 @@ void send_i(void)
 										wattroff(win_main, COLOR_PAIR(10));
 										if (ndeadline < deadline || deadline == 0)  deadline = ndeadline;
 
-										if (ndeadline != iter->deadline)
-										{
-											wattron(win_main, COLOR_PAIR(6));
-											wprintw(win_main, "----Fast block or corrupted file?----\nSent deadline:\t%llu\nServer's deadline:\t%llu \n----\n", iter->deadline, ndeadline, 0);
-											wattroff(win_main, COLOR_PAIR(6));
-										}
+										//if (ndeadline != iter->deadline * baseTarget)
+										//{
+										//	wattron(win_main, COLOR_PAIR(6));
+										//	wprintw(win_main, "----Fast block or corrupted file?----\nSent deadline:\t%llu\nServer's deadline:\t%llu \n----\n", iter->deadline * baseTarget, ndeadline, 0);
+										//	wattroff(win_main, COLOR_PAIR(6));
+										//}
 									}
 
 								}
