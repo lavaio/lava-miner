@@ -1275,8 +1275,8 @@ void procscoop_m_4(unsigned long long const nonce, unsigned long long const n, c
 
 		if ((*wertung / baseTarget) <= bests[acc].targetDeadline)
 		{
-				if (bests[acc].nonce == 0 || *wertung < bests[acc].best)
-				{
+            if (bests[acc].nonce == 0 || *wertung < bests[acc].best)
+            {
 					Log("\nfound deadline=");	Log_llu(*wertung / baseTarget); Log(" nonce=");	Log_llu(nonce + v + posn); Log(" for account: "); Log_llu(bests[acc].account_id); Log(" file: "); Log((char*)file_name.c_str());
 					EnterCriticalSection(&bestsLock);
 					bests[acc].best = *wertung;
@@ -1294,7 +1294,7 @@ void procscoop_m_4(unsigned long long const nonce, unsigned long long const n, c
 						wprintw(win_main, "%s [%20llu] found DL:      %9llu\n", tbuffer, bests[acc].account_id, bests[acc].DL, 0);
 						wattroff(win_main, COLOR_PAIR(2));
 					}
-				}
+            }			
 		}
 	}
 }
@@ -1393,8 +1393,8 @@ void procscoop_m256_8(unsigned long long const nonce, unsigned long long const n
 		
 		if ((*wertung / baseTarget) <= bests[acc].targetDeadline)
 		{
-				if (bests[acc].nonce == 0 || *wertung < bests[acc].best)
-				{
+            if (bests[acc].nonce == 0 || *wertung < bests[acc].best)
+            {
 					Log("\nfound deadline=");	Log_llu(*wertung / baseTarget); Log(" nonce=");	Log_llu(nonce + v + posn); Log(" for account: "); Log_llu(bests[acc].account_id); Log(" file: "); Log((char*)file_name.c_str());
 					EnterCriticalSection(&bestsLock);
 					bests[acc].best = *wertung;
@@ -1412,7 +1412,7 @@ void procscoop_m256_8(unsigned long long const nonce, unsigned long long const n
 						wprintw(win_main, "%s [%20llu] found DL:      %9llu\n", tbuffer, bests[acc].account_id, bests[acc].DL, 0);
 						wattroff(win_main, COLOR_PAIR(2));
 					}
-				}
+            }
 		}
 	}
 }
@@ -1440,8 +1440,8 @@ void procscoop_sph(const unsigned long long nonce, const unsigned long long n, c
 		unsigned long long coefi = *wertung / baseTarget;
 		if ((*wertung / baseTarget) <= bests[acc].targetDeadline)
 		{
-				if (bests[acc].nonce == 0 || *wertung < bests[acc].best)
-				{
+            if (bests[acc].nonce == 0 || *wertung < bests[acc].best)
+            {
 					Log("\nfound deadline=");	Log_llu(*wertung / baseTarget); Log(" nonce=");	Log_llu(nonce + v); Log(" for account: "); Log_llu(bests[acc].account_id); Log(" file: "); Log((char*)file_name.c_str());
 					EnterCriticalSection(&bestsLock);
 					bests[acc].best = *wertung;
@@ -1459,7 +1459,7 @@ void procscoop_sph(const unsigned long long nonce, const unsigned long long n, c
 						wprintw(win_main, "%s [%20llu] found DL:      %9llu\n", tbuffer, bests[acc].account_id, bests[acc].DL, 0);
 						wattroff(win_main, COLOR_PAIR(2));
 					}
-				}
+            }
 		}
 	}
 }
@@ -1483,8 +1483,8 @@ void procscoop_asm(const unsigned long long nonce, const unsigned long long n, c
 
 		if ((*wertung / baseTarget) <= bests[acc].targetDeadline)
 		{
-				if (bests[acc].nonce == 0 || *wertung < bests[acc].best)
-				{
+            if (bests[acc].nonce == 0 || *wertung < bests[acc].best)
+            {
 					Log("\nfound deadline=");	Log_llu(*wertung / baseTarget); Log(" nonce=");	Log_llu(nonce + v); Log(" for account: "); Log_llu(bests[acc].account_id); Log(" file: "); Log((char*)file_name.c_str());
 					EnterCriticalSection(&bestsLock);
 					bests[acc].best = *wertung;
@@ -1502,7 +1502,7 @@ void procscoop_asm(const unsigned long long nonce, const unsigned long long n, c
 						wprintw(win_main, "%s [%20llu] found DL:      %9llu\n", tbuffer, bests[acc].account_id, bests[acc].DL, 0);
 						wattroff(win_main, COLOR_PAIR(2));
 					}
-				}
+            }		
 		}
 	}
 }
@@ -2525,10 +2525,10 @@ int main(int argc, char **argv) {
 	RtlSecureZeroMemory(signature, 33);
 
 	//check wether the private key is imported
-	bool imp = check_privkey();
-	if (imp == false) {
-		while (true) {}
-	}
+	//bool imp = check_privkey();
+	//if (imp == false) {
+	//	while (true) {}
+	//}
 
 	// INFA
 	wattron(win_main, COLOR_PAIR(15));
