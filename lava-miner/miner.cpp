@@ -2621,7 +2621,10 @@ int main(int argc, char **argv) {
 
 		scoop = (((unsigned char)xcache[31]) + 256 * (unsigned char)xcache[30]) % 4096;
 		
-		st_height = int(height);
+		// here when height was modify after getmininginfo, the submitnonce thread would use the old height nonce, and the new height to submit,
+		// which cause the case that the checknonce error.
+		// the better way to fix it was put the height into shares.
+		st_height = int(height); 
 		deadline = 0;
 
 
