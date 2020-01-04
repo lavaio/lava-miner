@@ -111,7 +111,7 @@ struct t_files{
 	std::string Path;
 	std::string Name;
 	unsigned long long Size;// = 0;
-	unsigned long long Key;
+	std::string Key;
 	unsigned long long StartNonce;
 	unsigned long long Nonces;
 	unsigned long long Stagger;
@@ -120,7 +120,7 @@ struct t_files{
 
 struct t_shares{
 	std::string file_name;
-	unsigned long long account_id;// = 0;
+	std::string account_id;// = 0;
 	unsigned long long best;// = 0;
 	unsigned long long nonce;// = 0;
 };
@@ -128,7 +128,7 @@ struct t_shares{
 std::vector<t_shares> shares;
 
 struct t_best{
-	unsigned long long account_id;// = 0;
+	std::string account_id;// = 0;
 	unsigned long long best;// = 0;
 	unsigned long long nonce;// = 0;
 	unsigned long long DL;// = 0;
@@ -174,7 +174,7 @@ int xdigit(char const digit);
 size_t xstr2strr(char *buf, size_t const bufsize, const char *const in);
 void GetPass(char const *const p_strFolderPath);
 size_t GetFiles(const std::string &str, std::vector <t_files> *p_files);
-size_t Get_index_acc(unsigned long long const key);
+size_t Get_index_acc(const std::string& key);
 void proxy_i(void);
 void send_i(void);
 void procscoop_m_4(unsigned long long const nonce, unsigned long long const n, char const *const data, size_t const acc, const std::string &file_name);
