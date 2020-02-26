@@ -3,8 +3,8 @@
 #include <iostream>
 #include <string>
 
-#define __AVX2__
-#define __AVX__
+bool __AVX2__ = false;
+bool __AVX__ = false;
 
 // Initialize static member data
 const InstructionSet::InstructionSet_Internal InstructionSet::CPU_Rep;
@@ -1656,23 +1656,21 @@ void work_i(const size_t local_num) {
 				if (i + cache_size_local > stagger)
 				{
 					cache_size_local = stagger - i; 
-					#ifdef __AVX2__
-					if (cache_size_local < 8)
-					{
-						wattron(win_main, COLOR_PAIR(12));
-						wprintw(win_main, "WARNING: %llu\n", cache_size_local);
-						wattroff(win_main, COLOR_PAIR(12));
-					}
-					#else
-						#ifdef __AVX__
+					if (__AVX2__) {
+						if (cache_size_local < 8)
+						{
+							wattron(win_main, COLOR_PAIR(12));
+							wprintw(win_main, "WARNING: %llu\n", cache_size_local);
+							wattroff(win_main, COLOR_PAIR(12));
+						}
+					} else if (__AVX__) {
 						if (cache_size_local < 4)
 						{
-						wattron(win_main, COLOR_PAIR(12));
-						wprintw(win_main, "WARNING: %llu\n", cache_size_local);
-						wattroff(win_main, COLOR_PAIR(12));
+							wattron(win_main, COLOR_PAIR(12));
+							wprintw(win_main, "WARNING: %llu\n", cache_size_local);
+							wattroff(win_main, COLOR_PAIR(12));
 						}
-						#endif
-					#endif
+					}
 				}
 	
 				//Shuffle message if file POC not matching network POC
@@ -1742,19 +1740,15 @@ void work_i(const size_t local_num) {
 				if (bytes == cache_size_local * 64)
 				{
 					QueryPerformanceCounter((LARGE_INTEGER*)&start_time_proc);
-					#ifdef __AVX2__
+					if (__AVX2__)
 						procscoop_m256_8(n + nonce + i, cache_size_local, cache, acc, iter->Name);// Process block AVX2
-					#else
-						#ifdef __AVX__
-							procscoop_m_4(n + nonce + i, cache_size_local, cache, acc, iter->Name);// Process block AVX
-						#else
-							procscoop_sph(n + nonce + i, cache_size_local, cache, acc, iter->Name);// Process block SSE4
-						#endif
-					#endif
+					else if (__AVX__)
+						procscoop_m_4(n + nonce + i, cache_size_local, cache, acc, iter->Name);// Process block AVX
+					else
+						procscoop_sph(n + nonce + i, cache_size_local, cache, acc, iter->Name);// Process block SSE4
 					QueryPerformanceCounter(&li);
 					sum_time_proc += (double)(li.QuadPart - start_time_proc);
 					worker_progress[local_num].Reads_bytes += bytes;
-					
 				}
 				else
 				{
@@ -2339,29 +2333,35 @@ void GetCPUInfo(void)
 		if (InstructionSet::SSE2())   wprintw(win_main, " SSE2 ", 0);
 		if (InstructionSet::SSE3())   wprintw(win_main, " SSE3 ", 0);
 		if (InstructionSet::SSE42())   wprintw(win_main, " SSE4.2 ", 0);
-        if (InstructionSet::AVX())     wprintw(win_main, " AVX ", 0);
-		if (InstructionSet::AVX2())    wprintw(win_main, " AVX2 ", 0);
-
-#ifndef __AVX__
-		// Checking for AVX requires 3 things:
-		// 1) CPUID indicates that the OS uses XSAVE and XRSTORE instructions (allowing saving YMM registers on context switch)
-		// 2) CPUID indicates support for AVX
-		// 3) XGETBV indicates the AVX registers will be saved and restored on context switch
-		bool avxSupported = false;
-		int cpuInfo[4];
-		__cpuid(cpuInfo, 1);
-
-		bool osUsesXSAVE_XRSTORE = cpuInfo[2] & (1 << 27) || false;
-		bool cpuAVXSuport = cpuInfo[2] & (1 << 28) || false;
-
-		if (osUsesXSAVE_XRSTORE && cpuAVXSuport)
-		{
-			// Check if the OS will save the YMM registers
-			unsigned long long xcrFeatureMask = _xgetbv(_XCR_XFEATURE_ENABLED_MASK);
-			avxSupported = (xcrFeatureMask & 0x6) == 0x6;
+    if (InstructionSet::AVX()) {
+			wprintw(win_main, " AVX ", 0);
+			__AVX__ = true;
 		}
-            if (avxSupported)	wprintw(win_main, "     [recomend use AVX]", 0);	
-#endif
+		if (InstructionSet::AVX2()) {
+			wprintw(win_main, " AVX2 ", 0);
+			__AVX2__ = true;
+		}
+
+		if (__AVX__) {
+			// Checking for AVX requires 3 things:
+			// 1) CPUID indicates that the OS uses XSAVE and XRSTORE instructions (allowing saving YMM registers on context switch)
+			// 2) CPUID indicates support for AVX
+			// 3) XGETBV indicates the AVX registers will be saved and restored on context switch
+			bool avxSupported = false;
+			int cpuInfo[4];
+			__cpuid(cpuInfo, 1);
+
+			bool osUsesXSAVE_XRSTORE = cpuInfo[2] & (1 << 27) || false;
+			bool cpuAVXSuport = cpuInfo[2] & (1 << 28) || false;
+
+			if (osUsesXSAVE_XRSTORE && cpuAVXSuport)
+			{
+				// Check if the OS will save the YMM registers
+				unsigned long long xcrFeatureMask = _xgetbv(_XCR_XFEATURE_ENABLED_MASK);
+				avxSupported = (xcrFeatureMask & 0x6) == 0x6;
+			}
+			if (avxSupported)	wprintw(win_main, "     [recomend use AVX]", 0);	
+		}
 		if (InstructionSet::AVX2()) wprintw(win_main, "     [ use AVX2]", 0);
 		SYSTEM_INFO sysinfo;
 		GetSystemInfo(&sysinfo);
@@ -2632,7 +2632,7 @@ int main(int argc, char **argv) {
 		
 		_strtime_s(tbuffer);
 		wattron(win_main, COLOR_PAIR(25));
-		wprintw(win_main, "\n%s New block %llu, baseTarget %llu, netDiff %llu Tb, POC%i      \n", tbuffer, height, baseTarget, 4398046511104 / 240 / baseTarget, POC2 ? 2 : 1,0);
+		wprintw(win_main, "\n%s New block %llu, baseTarget %llu, netDiff %llu Tb, POC%i+      \n", tbuffer, height, baseTarget, 4398046511104 / 240 / baseTarget, POC2 ? 2 : 1,0);
 		wattron(win_main, COLOR_PAIR(25));
 		if (miner_mode == 0)
 		{
