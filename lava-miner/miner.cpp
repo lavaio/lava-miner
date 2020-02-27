@@ -3,8 +3,8 @@
 #include <iostream>
 #include <string>
 
-#define __AVX2__
-#define __AVX__
+bool __AVX2__ = false;
+bool __AVX__ = false;
 
 // Initialize static member data
 const InstructionSet::InstructionSet_Internal InstructionSet::CPU_Rep;
@@ -488,10 +488,12 @@ size_t GetFiles(const std::string &str, std::vector <t_files> *p_files)
 					if (estart != nullptr)
 					{
 						char* enonces = strstr(estart + 1, "_");
+						unsigned long long nonce, nonces, stagger;
+						std::string key;
+						key.resize(41);
 						if (enonces != nullptr)
 						{
-							unsigned long long key, nonce, nonces, stagger;
-							if (sscanf_s(FindFileData.cFileName, "%llu_%llu_%llu_%llu", &key, &nonce, &nonces, &stagger) == 4)
+							if (sscanf_s(FindFileData.cFileName, "%40s_%llu_%llu_%llu", (char*)key.data(), 41, &nonce, &nonces, &stagger) == 4)
 							{
 								bool p2 = false;
 								p_files->push_back({
@@ -502,22 +504,21 @@ size_t GetFiles(const std::string &str, std::vector <t_files> *p_files)
 								});
 								count++;
 							}
-
 						}
-						//POC2 FILE
-						unsigned long long key, nonce, nonces;
-						if (sscanf_s(FindFileData.cFileName, "%llu_%llu_%llu_%llu", &key, &nonce, &nonces) == 3)
+						else
 						{
-							bool p2 = true;
-							p_files->push_back({
-								*iter,
-								FindFileData.cFileName,
-								(((static_cast<ULONGLONG>(FindFileData.nFileSizeHigh) << (sizeof(FindFileData.nFileSizeLow) * 8)) | FindFileData.nFileSizeLow)),
-								key, nonce, nonces, nonces, p2
-								});
-							count++;
+							if (sscanf_s(FindFileData.cFileName, "%40s_%llu_%llu", (char*)key.data(), 41, &nonce, &nonces) == 3)
+							{
+								bool p2 = true;
+								p_files->push_back({
+									*iter,
+									FindFileData.cFileName,
+									(((static_cast<ULONGLONG>(FindFileData.nFileSizeHigh) << (sizeof(FindFileData.nFileSizeLow) * 8)) | FindFileData.nFileSizeLow)),
+									key, nonce, nonces, nonces, p2
+									});
+								count++;
+							}
 						}
-
 					}
 				}
 			} while (FindNextFileA(hFile, &FindFileData));
@@ -527,7 +528,7 @@ size_t GetFiles(const std::string &str, std::vector <t_files> *p_files)
 	return count;
 }
 
-size_t Get_index_acc(unsigned long long const key)
+size_t Get_index_acc(const std::string& key)
 {
 	EnterCriticalSection(&bestsLock);
 	size_t acc_index = 0;
@@ -637,7 +638,7 @@ void proxy_i(void)
 			} while (iResult > 0);
 
 			Log("\nProxy get info: ");  Log_server(buffer);
-			unsigned long long get_accountId = 0;
+			std::string get_accountId;
 			unsigned long long get_nonce = 0;
 			unsigned long long get_deadline = 0;
 			unsigned long long get_totalsize = 0;
@@ -647,11 +648,10 @@ void proxy_i(void)
 			{
 				if (strstr(buffer, "submitNonce") != nullptr)
 				{
-
 					char *startaccountId = strstr(buffer, "accountId=");
 					if (startaccountId != nullptr)
 					{
-						startaccountId = strpbrk(startaccountId, "0123456789");
+						startaccountId = strpbrk(startaccountId, "0123456789abcdefABCDEF");
 						char *endaccountId = strpbrk(startaccountId, "& }\"");
 
 						char *startnonce = strstr(buffer, "nonce=");
@@ -668,7 +668,7 @@ void proxy_i(void)
 							endnonce[0] = 0;
 							enddl[0] = 0;
 
-							get_accountId = _strtoui64(startaccountId, 0, 10);
+							get_accountId = startaccountId;
 							get_nonce = _strtoui64(startnonce, 0, 10);
 							get_deadline = _strtoui64(startdl, 0, 10);
 
@@ -686,13 +686,13 @@ void proxy_i(void)
 
 							_strtime_s(tbuffer);
 							wattron(win_main, COLOR_PAIR(2));
-							wprintw(win_main, "%s [%20llu]\treceived DL: %11llu {%s}\n", tbuffer, get_accountId, get_deadline / baseTarget, client_address_str, 0);
+							wprintw(win_main, "%s [%s]\treceived DL: %11llu {%s}\n", tbuffer, get_accountId, get_deadline / baseTarget, client_address_str, 0);
 							wattroff(win_main, COLOR_PAIR(2));
 							Log("Proxy: received DL "); Log_llu(get_deadline); Log(" from "); Log(client_address_str);
 
 							RtlSecureZeroMemory(buffer, buffer_size);
 							size_t acc = Get_index_acc(get_accountId);
-							int bytes = sprintf_s(buffer, buffer_size, "HTTP/1.0 200 OK\r\nConnection: close\r\n\r\n{\"result\": \"proxy\",\"accountId\": %llu,\"deadline\": %llu,\"targetDeadline\": %llu}", get_accountId, get_deadline / baseTarget, bests[acc].targetDeadline);
+							int bytes = sprintf_s(buffer, buffer_size, "HTTP/1.0 200 OK\r\nConnection: close\r\n\r\n{\"result\": \"proxy\",\"accountId\": %s,\"deadline\": %llu,\"targetDeadline\": %llu}", get_accountId.c_str(), get_deadline / baseTarget, bests[acc].targetDeadline);
 							iResult = send(ClientSocket, buffer, bytes, 0);
 							if (iResult == SOCKET_ERROR)
 							{
@@ -707,7 +707,7 @@ void proxy_i(void)
 								{
 									_strtime_s(tbuffer);
 									wattron(win_main, COLOR_PAIR(9));
-									wprintw(win_main, "%s [%20llu]\tsent confirmation to %s\n", tbuffer, get_accountId, client_address_str, 0);
+									wprintw(win_main, "%s [%s]\tsent confirmation to %s\n", tbuffer, get_accountId, client_address_str, 0);
 									wattroff(win_main, COLOR_PAIR(9));
 								}
 								Log("\nProxy: sent confirmation to "); Log(client_address_str);
@@ -768,10 +768,10 @@ void send_i(void)
 	size_t const buffer_size = 1000;
 	char* buffer = (char*)HeapAlloc(hHeap, HEAP_ZERO_MEMORY, buffer_size);
 	char* bodybuffer = (char*)HeapAlloc(hHeap, HEAP_ZERO_MEMORY, buffer_size);
-    char* userbuffer = (char*)HeapAlloc(hHeap, HEAP_ZERO_MEMORY, buffer_size);
+  char* userbuffer = (char*)HeapAlloc(hHeap, HEAP_ZERO_MEMORY, buffer_size);
 	if (buffer == nullptr) ShowMemErrorExit();
 	if (bodybuffer == nullptr) ShowMemErrorExit();
-    if (userbuffer == nullptr) ShowMemErrorExit();
+  if (userbuffer == nullptr) ShowMemErrorExit();
 
 	char tbuffer[9];
 
@@ -784,28 +784,28 @@ void send_i(void)
 		{
 			HeapFree(hHeap, 0, buffer);
 			HeapFree(hHeap, 0, bodybuffer);
-            HeapFree(hHeap, 0, userbuffer);
+			HeapFree(hHeap, 0, userbuffer);
 			return;
 		}
 
 		for (auto iter = shares.begin(); iter != shares.end();)
 		{
 
-		//if  this Deadline > targetDeadline, we discard it. That is related to Proxy mode.
-				if ((iter->best / baseTarget) > bests[Get_index_acc(iter->account_id)].targetDeadline)
+			//if  this Deadline > targetDeadline, we discard it. That is related to Proxy mode.
+			if ((iter->best / baseTarget) > bests[Get_index_acc(iter->account_id)].targetDeadline)
+			{
+				if (use_debug)
 				{
-					if (use_debug)
-					{
-						_strtime_s(tbuffer);
-						wattron(win_main, COLOR_PAIR(4));
-						wprintw(win_main, "%s [%20llu]\t%llu > %llu  discarded\n", tbuffer, iter->account_id, iter->best / baseTarget, bests[Get_index_acc(iter->account_id)].targetDeadline, 0);
-						wattroff(win_main, COLOR_PAIR(4));
-					}
-					EnterCriticalSection(&sharesLock);
-					iter = shares.erase(iter);
-					LeaveCriticalSection(&sharesLock);
-					continue;
+					_strtime_s(tbuffer);
+					wattron(win_main, COLOR_PAIR(4));
+					wprintw(win_main, "%s [%s]%llu > %llu  discarded\n", tbuffer, iter->account_id.c_str(), iter->best / baseTarget, bests[Get_index_acc(iter->account_id)].targetDeadline, 0);
+					wattroff(win_main, COLOR_PAIR(4));
 				}
+				EnterCriticalSection(&sharesLock);
+				iter = shares.erase(iter);
+				LeaveCriticalSection(&sharesLock);
+				continue;
+			}
 
 			RtlSecureZeroMemory(&hints, sizeof(hints));
 			hints.ai_family = AF_INET;
@@ -851,10 +851,10 @@ void send_i(void)
 
 				int bytes = 0;
 				int bytestmp = 0;
-                int byteUser = 0;
+				int byteUser = 0;
 
-                byteUser = sprintf_s(userbuffer, buffer_size, "%s:%s", http_account.c_str(), http_password.c_str());
-                std::string encoded = base64_encode(reinterpret_cast<const unsigned char*>(userbuffer), byteUser);
+				byteUser = sprintf_s(userbuffer, buffer_size, "%s:%s", http_account.c_str(), http_password.c_str());
+				std::string encoded = base64_encode(reinterpret_cast<const unsigned char*>(userbuffer), byteUser);
 				if (miner_mode == 0)
 				{
 					bytestmp = sprintf_s(bodybuffer, buffer_size, "{\r\n\"jsonrpc\": \"1.0\",\r\n\"id\":\"curltest\",\r\n\"method\": \"submitNonce\",\r\n\"params\": [],\r\n\"secretPhrase\":%s,\r\n\"nonce\":%llu}", pass, iter->nonce);
@@ -893,7 +893,7 @@ void send_i(void)
 					_strtime_s(tbuffer);
 					if (network_quality < 100) network_quality++;
 					wattron(win_main, COLOR_PAIR(9));
-					wprintw(win_main, "%s [%20llu] sent DL: %15llu %5llud %02llu:%02llu:%02llu\n", tbuffer, iter->account_id, dl, (dl) / (24 * 60 * 60), (dl % (24 * 60 * 60)) / (60 * 60), (dl % (60 * 60)) / 60, dl % 60, 0);
+					wprintw(win_main, "%s [%s] sent DL: %15llu %5llud %02llu:%02llu:%02llu\n", tbuffer, iter->account_id.c_str(), dl, (dl) / (24 * 60 * 60), (dl % (24 * 60 * 60)) / (60 * 60), (dl % (60 * 60)) / 60, dl % 60, 0);
 					wattroff(win_main, COLOR_PAIR(9));
 
 					EnterCriticalSection(&sessionsLock);
@@ -967,7 +967,7 @@ void send_i(void)
 						}
 
 						unsigned long long ndeadline;
-						unsigned long long naccountId = 0;
+						std::string naccountId;
 						unsigned long long ntargetDeadline = 0;
 						rapidjson::Document answ;
 						if (!answ.Parse<0>(find).HasParseError())
@@ -989,9 +989,7 @@ void send_i(void)
 												if (anObj["targetdeadline"].IsInt64()) ntargetDeadline = anObj["targetdeadline"].GetInt64();
 										}
 										if (anObj.HasMember("plotid")) {
-											if (anObj["plotid"].IsString())	naccountId = _strtoui64(anObj["plotid"].GetString(), 0, 10);
-											else
-												if (anObj["plotid"].IsInt64()) naccountId = anObj["plotid"].GetInt64();
+											if (anObj["plotid"].IsString())	naccountId = anObj["plotid"].GetString();
 										}
 
 										unsigned long long days = (ndeadline) / (24 * 60 * 60);
@@ -1000,15 +998,15 @@ void send_i(void)
 										unsigned sec = ndeadline % 60;
 										_strtime_s(tbuffer);
 										wattron(win_main, COLOR_PAIR(10));
-										if ((naccountId != 0) && (ntargetDeadline != 0))
+										if ((naccountId.size()) && (ntargetDeadline != 0))
 										{
 											EnterCriticalSection(&bestsLock);
 											bests[Get_index_acc(naccountId)].targetDeadline = ntargetDeadline;
 											LeaveCriticalSection(&bestsLock);
-											wprintw(win_main, "%s [%20llu] confirmed DL: %10llu %5llud %02u:%02u:%02u\n", tbuffer, naccountId, ndeadline, days, hours, min, sec, 0);
-											if (use_debug) wprintw(win_main, "%s [%20llu] set targetDL: %10llu\n", tbuffer, naccountId, ntargetDeadline, 0);
+											wprintw(win_main, "%s [%s] confirmed DL: %10llu %5llud %02u:%02u:%02u\n", tbuffer, naccountId, ndeadline, days, hours, min, sec, 0);
+											if (use_debug) wprintw(win_main, "%s [%s] set targetDL: %10llu\n", tbuffer, naccountId, ntargetDeadline, 0);
 										}
-										else wprintw(win_main, "%s [%20llu] confirmed DL: %10llu %5llud %02u:%02u:%02u\n", tbuffer, iter->body.account_id, ndeadline, days, hours, min, sec, 0);
+										else wprintw(win_main, "%s [%s] confirmed DL: %10llu %5llud %02u:%02u:%02u\n", tbuffer, iter->body.account_id.c_str(), ndeadline, days, hours, min, sec, 0);
 										wattroff(win_main, COLOR_PAIR(10));
 										if (ndeadline < deadline || deadline == 0)  deadline = ndeadline;
 
@@ -1047,7 +1045,7 @@ void send_i(void)
 								_strtime_s(tbuffer);
 								deadline = bests[Get_index_acc(iter->body.account_id)].DL; 
 								wattron(win_main, COLOR_PAIR(10));
-								wprintw(win_main, "%s [%20llu] confirmed DL   %10llu\n", tbuffer, iter->body.account_id, iter->deadline, 0);
+								wprintw(win_main, "%s [%s] confirmed DL   %10llu\n", tbuffer, iter->body.account_id.c_str(), iter->deadline, 0);
 								wattroff(win_main, COLOR_PAIR(10));
 							}
 							else //received an answer which is uncommited.
@@ -1090,8 +1088,8 @@ void send_i(void)
 		std::this_thread::sleep_for(std::chrono::milliseconds(send_interval));
 	}
 	HeapFree(hHeap, 0, buffer);
-    HeapFree(hHeap, 0, bodybuffer);
-    HeapFree(hHeap, 0, userbuffer);
+	HeapFree(hHeap, 0, bodybuffer);
+	HeapFree(hHeap, 0, userbuffer);
 	return;
 }
 
@@ -1275,26 +1273,26 @@ void procscoop_m_4(unsigned long long const nonce, unsigned long long const n, c
 
 		if ((*wertung / baseTarget) <= bests[acc].targetDeadline)
 		{
-            if (bests[acc].nonce == 0 || *wertung < bests[acc].best)
-            {
-					Log("\nfound deadline=");	Log_llu(*wertung / baseTarget); Log(" nonce=");	Log_llu(nonce + v + posn); Log(" for account: "); Log_llu(bests[acc].account_id); Log(" file: "); Log((char*)file_name.c_str());
-					EnterCriticalSection(&bestsLock);
-					bests[acc].best = *wertung;
-					bests[acc].nonce = nonce + v + posn;
-					bests[acc].DL = *wertung / baseTarget;
-					LeaveCriticalSection(&bestsLock);
-					EnterCriticalSection(&sharesLock);
-					shares.push_back({ file_name, bests[acc].account_id, bests[acc].best, bests[acc].nonce });
-					LeaveCriticalSection(&sharesLock);
-					if (use_debug)
-					{
-						char tbuffer[9];
-						_strtime_s(tbuffer);
-						wattron(win_main, COLOR_PAIR(2));
-						wprintw(win_main, "%s [%20llu] found DL:      %9llu\n", tbuffer, bests[acc].account_id, bests[acc].DL, 0);
-						wattroff(win_main, COLOR_PAIR(2));
-					}
-            }			
+			if (bests[acc].nonce == 0 || *wertung < bests[acc].best)
+			{
+				Log("\nfound deadline=");	Log_llu(*wertung / baseTarget); Log(" nonce=");	Log_llu(nonce + v + posn); Log(" for account: "); Log(bests[acc].account_id.c_str()); Log(" file: "); Log((char*)file_name.c_str());
+				EnterCriticalSection(&bestsLock);
+				bests[acc].best = *wertung;
+				bests[acc].nonce = nonce + v + posn;
+				bests[acc].DL = *wertung / baseTarget;
+				LeaveCriticalSection(&bestsLock);
+				EnterCriticalSection(&sharesLock);
+				shares.push_back({ file_name, bests[acc].account_id, bests[acc].best, bests[acc].nonce });
+				LeaveCriticalSection(&sharesLock);
+				if (use_debug)
+				{
+					char tbuffer[9];
+					_strtime_s(tbuffer);
+					wattron(win_main, COLOR_PAIR(2));
+					wprintw(win_main, "%s [%s] found DL:      %9llu\n", tbuffer, bests[acc].account_id.c_str(), bests[acc].DL, 0);
+					wattroff(win_main, COLOR_PAIR(2));
+				}
+      }
 		}
 	}
 }
@@ -1393,26 +1391,26 @@ void procscoop_m256_8(unsigned long long const nonce, unsigned long long const n
 		
 		if ((*wertung / baseTarget) <= bests[acc].targetDeadline)
 		{
-            if (bests[acc].nonce == 0 || *wertung < bests[acc].best)
-            {
-					Log("\nfound deadline=");	Log_llu(*wertung / baseTarget); Log(" nonce=");	Log_llu(nonce + v + posn); Log(" for account: "); Log_llu(bests[acc].account_id); Log(" file: "); Log((char*)file_name.c_str());
-					EnterCriticalSection(&bestsLock);
-					bests[acc].best = *wertung;
-					bests[acc].nonce = nonce + v + posn;
-					bests[acc].DL = *wertung / baseTarget;
-					LeaveCriticalSection(&bestsLock);
-					EnterCriticalSection(&sharesLock);
-					shares.push_back({ file_name, bests[acc].account_id, bests[acc].best, bests[acc].nonce });
-					LeaveCriticalSection(&sharesLock);
-					if (use_debug)
-					{
-						char tbuffer[9];
-						_strtime_s(tbuffer);
-						wattron(win_main, COLOR_PAIR(2));
-						wprintw(win_main, "%s [%20llu] found DL:      %9llu\n", tbuffer, bests[acc].account_id, bests[acc].DL, 0);
-						wattroff(win_main, COLOR_PAIR(2));
-					}
-            }
+			if (bests[acc].nonce == 0 || *wertung < bests[acc].best)
+			{
+				Log("\nfound deadline=");	Log_llu(*wertung / baseTarget); Log(" nonce=");	Log_llu(nonce + v + posn); Log(" for account: "); Log(bests[acc].account_id.c_str()); Log(" file: "); Log((char*)file_name.c_str());
+				EnterCriticalSection(&bestsLock);
+				bests[acc].best = *wertung;
+				bests[acc].nonce = nonce + v + posn;
+				bests[acc].DL = *wertung / baseTarget;
+				LeaveCriticalSection(&bestsLock);
+				EnterCriticalSection(&sharesLock);
+				shares.push_back({ file_name, bests[acc].account_id, bests[acc].best, bests[acc].nonce });
+				LeaveCriticalSection(&sharesLock);
+				if (use_debug)
+				{
+					char tbuffer[9];
+					_strtime_s(tbuffer);
+					wattron(win_main, COLOR_PAIR(2));
+					wprintw(win_main, "%s [%s] found DL:      %9llu\n", tbuffer, bests[acc].account_id.c_str(), bests[acc].DL, 0);
+					wattroff(win_main, COLOR_PAIR(2));
+				}
+			}
 		}
 	}
 }
@@ -1440,26 +1438,26 @@ void procscoop_sph(const unsigned long long nonce, const unsigned long long n, c
 		unsigned long long coefi = *wertung / baseTarget;
 		if ((*wertung / baseTarget) <= bests[acc].targetDeadline)
 		{
-            if (bests[acc].nonce == 0 || *wertung < bests[acc].best)
-            {
-					Log("\nfound deadline=");	Log_llu(*wertung / baseTarget); Log(" nonce=");	Log_llu(nonce + v); Log(" for account: "); Log_llu(bests[acc].account_id); Log(" file: "); Log((char*)file_name.c_str());
-					EnterCriticalSection(&bestsLock);
-					bests[acc].best = *wertung;
-					bests[acc].nonce = nonce + v;
-					bests[acc].DL = *wertung / baseTarget;
-					LeaveCriticalSection(&bestsLock);
-					EnterCriticalSection(&sharesLock);
-					shares.push_back({ file_name, bests[acc].account_id, bests[acc].best, bests[acc].nonce });
-					LeaveCriticalSection(&sharesLock);
-					if (use_debug)
-					{
-						char tbuffer[9];
-						_strtime_s(tbuffer);
-						wattron(win_main, COLOR_PAIR(2));
-						wprintw(win_main, "%s [%20llu] found DL:      %9llu\n", tbuffer, bests[acc].account_id, bests[acc].DL, 0);
-						wattroff(win_main, COLOR_PAIR(2));
-					}
-            }
+			if (bests[acc].nonce == 0 || *wertung < bests[acc].best)
+			{
+				Log("\nfound deadline=");	Log_llu(*wertung / baseTarget); Log(" nonce=");	Log_llu(nonce + v); Log(" for account: "); Log(bests[acc].account_id.c_str()); Log(" file: "); Log((char*)file_name.c_str());
+				EnterCriticalSection(&bestsLock);
+				bests[acc].best = *wertung;
+				bests[acc].nonce = nonce + v;
+				bests[acc].DL = *wertung / baseTarget;
+				LeaveCriticalSection(&bestsLock);
+				EnterCriticalSection(&sharesLock);
+				shares.push_back({ file_name, bests[acc].account_id, bests[acc].best, bests[acc].nonce });
+				LeaveCriticalSection(&sharesLock);
+				if (use_debug)
+				{
+					char tbuffer[9];
+					_strtime_s(tbuffer);
+					wattron(win_main, COLOR_PAIR(2));
+					wprintw(win_main, "%s [%s] found DL:      %9llu\n", tbuffer, bests[acc].account_id.c_str(), bests[acc].DL, 0);
+					wattroff(win_main, COLOR_PAIR(2));
+				}
+			}
 		}
 	}
 }
@@ -1483,26 +1481,26 @@ void procscoop_asm(const unsigned long long nonce, const unsigned long long n, c
 
 		if ((*wertung / baseTarget) <= bests[acc].targetDeadline)
 		{
-            if (bests[acc].nonce == 0 || *wertung < bests[acc].best)
-            {
-					Log("\nfound deadline=");	Log_llu(*wertung / baseTarget); Log(" nonce=");	Log_llu(nonce + v); Log(" for account: "); Log_llu(bests[acc].account_id); Log(" file: "); Log((char*)file_name.c_str());
-					EnterCriticalSection(&bestsLock);
-					bests[acc].best = *wertung;
-					bests[acc].nonce = nonce + v;
-					bests[acc].DL = *wertung / baseTarget;
-					LeaveCriticalSection(&bestsLock);
-					EnterCriticalSection(&sharesLock);
-					shares.push_back({ file_name, bests[acc].account_id, bests[acc].best, bests[acc].nonce });
-					LeaveCriticalSection(&sharesLock);
-					if (use_debug)
-					{
-						char tbuffer[9];
-						_strtime_s(tbuffer);
-						wattron(win_main, COLOR_PAIR(2));
-						wprintw(win_main, "%s [%20llu] found DL:      %9llu\n", tbuffer, bests[acc].account_id, bests[acc].DL, 0);
-						wattroff(win_main, COLOR_PAIR(2));
-					}
-            }		
+			if (bests[acc].nonce == 0 || *wertung < bests[acc].best)
+			{
+				Log("\nfound deadline=");	Log_llu(*wertung / baseTarget); Log(" nonce=");	Log_llu(nonce + v); Log(" for account: "); Log(bests[acc].account_id.c_str()); Log(" file: "); Log((char*)file_name.c_str());
+				EnterCriticalSection(&bestsLock);
+				bests[acc].best = *wertung;
+				bests[acc].nonce = nonce + v;
+				bests[acc].DL = *wertung / baseTarget;
+				LeaveCriticalSection(&bestsLock);
+				EnterCriticalSection(&sharesLock);
+				shares.push_back({ file_name, bests[acc].account_id, bests[acc].best, bests[acc].nonce });
+				LeaveCriticalSection(&sharesLock);
+				if (use_debug)
+				{
+					char tbuffer[9];
+					_strtime_s(tbuffer);
+					wattron(win_main, COLOR_PAIR(2));
+					wprintw(win_main, "%s [%s] found DL:      %9llu\n", tbuffer, bests[acc].account_id.c_str(), bests[acc].DL, 0);
+					wattroff(win_main, COLOR_PAIR(2));
+				}
+			}		
 		}
 	}
 }
@@ -1539,7 +1537,8 @@ void work_i(const size_t local_num) {
 
 	for (auto iter = files.begin(); iter != files.end(); ++iter)
 	{
-		unsigned long long key, nonce, nonces, stagger, tail;
+		std::string key;
+		unsigned long long nonce, nonces, stagger, tail;
 		bool p2;
 		QueryPerformanceCounter((LARGE_INTEGER*)&start_time_read);
 		key = iter->Key;
@@ -1657,23 +1656,21 @@ void work_i(const size_t local_num) {
 				if (i + cache_size_local > stagger)
 				{
 					cache_size_local = stagger - i; 
-					#ifdef __AVX2__
-					if (cache_size_local < 8)
-					{
-						wattron(win_main, COLOR_PAIR(12));
-						wprintw(win_main, "WARNING: %llu\n", cache_size_local);
-						wattroff(win_main, COLOR_PAIR(12));
-					}
-					#else
-						#ifdef __AVX__
+					if (__AVX2__) {
+						if (cache_size_local < 8)
+						{
+							wattron(win_main, COLOR_PAIR(12));
+							wprintw(win_main, "WARNING: %llu\n", cache_size_local);
+							wattroff(win_main, COLOR_PAIR(12));
+						}
+					} else if (__AVX__) {
 						if (cache_size_local < 4)
 						{
-						wattron(win_main, COLOR_PAIR(12));
-						wprintw(win_main, "WARNING: %llu\n", cache_size_local);
-						wattroff(win_main, COLOR_PAIR(12));
+							wattron(win_main, COLOR_PAIR(12));
+							wprintw(win_main, "WARNING: %llu\n", cache_size_local);
+							wattroff(win_main, COLOR_PAIR(12));
 						}
-						#endif
-					#endif
+					}
 				}
 	
 				//Shuffle message if file POC not matching network POC
@@ -1743,19 +1740,15 @@ void work_i(const size_t local_num) {
 				if (bytes == cache_size_local * 64)
 				{
 					QueryPerformanceCounter((LARGE_INTEGER*)&start_time_proc);
-					#ifdef __AVX2__
+					if (__AVX2__)
 						procscoop_m256_8(n + nonce + i, cache_size_local, cache, acc, iter->Name);// Process block AVX2
-					#else
-						#ifdef __AVX__
-							procscoop_m_4(n + nonce + i, cache_size_local, cache, acc, iter->Name);// Process block AVX
-						#else
-							procscoop_sph(n + nonce + i, cache_size_local, cache, acc, iter->Name);// Process block SSE4
-						#endif
-					#endif
+					else if (__AVX__)
+						procscoop_m_4(n + nonce + i, cache_size_local, cache, acc, iter->Name);// Process block AVX
+					else
+						procscoop_sph(n + nonce + i, cache_size_local, cache, acc, iter->Name);// Process block SSE4
 					QueryPerformanceCounter(&li);
 					sum_time_proc += (double)(li.QuadPart - start_time_proc);
 					worker_progress[local_num].Reads_bytes += bytes;
-					
 				}
 				else
 				{
@@ -2100,9 +2093,9 @@ void pollLocal(void) {
 				Log("\n*! GMI: connect function failed with error: "); Log_u(WSAGetLastError());
 			}
 			else {
-                int byteUser;
-                byteUser = sprintf_s(userbuffer, buffer_size, "%s:%s", http_account.c_str(), http_password.c_str());
-                std::string encoded = base64_encode(reinterpret_cast<const unsigned char*>(userbuffer), byteUser);
+				int byteUser;
+				byteUser = sprintf_s(userbuffer, buffer_size, "%s:%s", http_account.c_str(), http_password.c_str());
+				std::string encoded = base64_encode(reinterpret_cast<const unsigned char*>(userbuffer), byteUser);
 				char body[] = "{\r\n\"jsonrpc\": \"1.0\",\r\n\"id\":\"curltest\",\r\n\"method\": \"getmininginfo\",\r\n\"params\": []\r\n}";
 				int len = sizeof(body);
 				int bytes;
@@ -2340,29 +2333,35 @@ void GetCPUInfo(void)
 		if (InstructionSet::SSE2())   wprintw(win_main, " SSE2 ", 0);
 		if (InstructionSet::SSE3())   wprintw(win_main, " SSE3 ", 0);
 		if (InstructionSet::SSE42())   wprintw(win_main, " SSE4.2 ", 0);
-        if (InstructionSet::AVX())     wprintw(win_main, " AVX ", 0);
-		if (InstructionSet::AVX2())    wprintw(win_main, " AVX2 ", 0);
-
-#ifndef __AVX__
-		// Checking for AVX requires 3 things:
-		// 1) CPUID indicates that the OS uses XSAVE and XRSTORE instructions (allowing saving YMM registers on context switch)
-		// 2) CPUID indicates support for AVX
-		// 3) XGETBV indicates the AVX registers will be saved and restored on context switch
-		bool avxSupported = false;
-		int cpuInfo[4];
-		__cpuid(cpuInfo, 1);
-
-		bool osUsesXSAVE_XRSTORE = cpuInfo[2] & (1 << 27) || false;
-		bool cpuAVXSuport = cpuInfo[2] & (1 << 28) || false;
-
-		if (osUsesXSAVE_XRSTORE && cpuAVXSuport)
-		{
-			// Check if the OS will save the YMM registers
-			unsigned long long xcrFeatureMask = _xgetbv(_XCR_XFEATURE_ENABLED_MASK);
-			avxSupported = (xcrFeatureMask & 0x6) == 0x6;
+    if (InstructionSet::AVX()) {
+			wprintw(win_main, " AVX ", 0);
+			__AVX__ = true;
 		}
-            if (avxSupported)	wprintw(win_main, "     [recomend use AVX]", 0);	
-#endif
+		if (InstructionSet::AVX2()) {
+			wprintw(win_main, " AVX2 ", 0);
+			__AVX2__ = true;
+		}
+
+		if (__AVX__) {
+			// Checking for AVX requires 3 things:
+			// 1) CPUID indicates that the OS uses XSAVE and XRSTORE instructions (allowing saving YMM registers on context switch)
+			// 2) CPUID indicates support for AVX
+			// 3) XGETBV indicates the AVX registers will be saved and restored on context switch
+			bool avxSupported = false;
+			int cpuInfo[4];
+			__cpuid(cpuInfo, 1);
+
+			bool osUsesXSAVE_XRSTORE = cpuInfo[2] & (1 << 27) || false;
+			bool cpuAVXSuport = cpuInfo[2] & (1 << 28) || false;
+
+			if (osUsesXSAVE_XRSTORE && cpuAVXSuport)
+			{
+				// Check if the OS will save the YMM registers
+				unsigned long long xcrFeatureMask = _xgetbv(_XCR_XFEATURE_ENABLED_MASK);
+				avxSupported = (xcrFeatureMask & 0x6) == 0x6;
+			}
+			if (avxSupported)	wprintw(win_main, "     [recomend use AVX]", 0);	
+		}
 		if (InstructionSet::AVX2()) wprintw(win_main, "     [ use AVX2]", 0);
 		SYSTEM_INFO sysinfo;
 		GetSystemInfo(&sysinfo);
@@ -2525,10 +2524,10 @@ int main(int argc, char **argv) {
 	RtlSecureZeroMemory(signature, 33);
 
 	//check wether the private key is imported
-	bool imp = check_privkey();
-	if (imp == false) {
-		while (true) {}
-	}
+	//bool imp = check_privkey();
+	//if (imp == false) {
+	//	while (true) {}
+	//}
 
 	// INFA
 	wattron(win_main, COLOR_PAIR(15));
@@ -2621,7 +2620,10 @@ int main(int argc, char **argv) {
 
 		scoop = (((unsigned char)xcache[31]) + 256 * (unsigned char)xcache[30]) % 4096;
 		
-		st_height = int(height);
+		// here when height was modify after getmininginfo, the submitnonce thread would use the old height nonce, and the new height to submit,
+		// which cause the case that the checknonce error.
+		// the better way to fix it was put the height into shares.
+		st_height = int(height); 
 		deadline = 0;
 
 
@@ -2630,7 +2632,7 @@ int main(int argc, char **argv) {
 		
 		_strtime_s(tbuffer);
 		wattron(win_main, COLOR_PAIR(25));
-		wprintw(win_main, "\n%s New block %llu, baseTarget %llu, netDiff %llu Tb, POC%i      \n", tbuffer, height, baseTarget, 4398046511104 / 240 / baseTarget, POC2 ? 2 : 1,0);
+		wprintw(win_main, "\n%s New block %llu, baseTarget %llu, netDiff %llu Tb, POC%i+      \n", tbuffer, height, baseTarget, 4398046511104 / 240 / baseTarget, POC2 ? 2 : 1,0);
 		wattron(win_main, COLOR_PAIR(25));
 		if (miner_mode == 0)
 		{
