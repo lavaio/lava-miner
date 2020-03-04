@@ -992,10 +992,10 @@ void send_i(void)
 											if (anObj["plotid"].IsString())	naccountId = anObj["plotid"].GetString();
 										}
 
-										unsigned long long days = (ndeadline) / (24 * 60 * 60);
-										unsigned hours = (ndeadline % (24 * 60 * 60)) / (60 * 60);
-										unsigned min = (ndeadline % (60 * 60)) / 60;
-										unsigned sec = ndeadline % 60;
+										unsigned long long days = (ndeadline/baseTarget) / (24 * 60 * 60);
+										unsigned hours = (ndeadline/baseTarget % (24 * 60 * 60)) / (60 * 60);
+										unsigned min = (ndeadline/baseTarget % (60 * 60)) / 60;
+										unsigned sec = ndeadline/baseTarget % 60;
 										_strtime_s(tbuffer);
 										wattron(win_main, COLOR_PAIR(10));
 										if ((naccountId.size()) && (ntargetDeadline != 0))
